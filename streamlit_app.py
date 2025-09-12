@@ -6,8 +6,8 @@ import numpy as np
 # ---- Load artifacts ----
 @st.cache_resource
 def load_artifacts():
-    model_obj = joblib.load("deployable/model.pkl")
-    label_encoders = joblib.load("deployable/label_encoders.pkl")
+    model_obj = joblib.load("deployable/model.joblib")
+    label_encoders = joblib.load("deployable/preprocessing.joblib")
     return model_obj, label_encoders
 
 model_obj, label_encoders = load_artifacts()
@@ -15,8 +15,13 @@ model_obj, label_encoders = load_artifacts()
 # ---- Helpers ----
 def sanitize_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Ensure input DataFrame has all expected columns, fill missing with NaN."""
-    expected_cols = model_obj["models"]["CatBoost"].feature_names_ \
-        if isinstance(model_obj, dict) else model_obj.feature_names_in_
+    if isinstance(model_obj, dict) and "models" in model_obj:
+        # get feature names from one of the models
+        example_model = next(iter(model_obj["models"].values()))
+        expected_cols = example_model.feature_names_in_
+    else:
+        expected_cols = model_obj.feature_names_in_
+
     for col in expected_cols:
         if col not in df.columns:
             df[col] = np.nan
