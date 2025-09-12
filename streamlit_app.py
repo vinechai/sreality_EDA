@@ -44,13 +44,13 @@ def predict_price(df_raw: pd.DataFrame):
         base_models = model_obj["base_models"]
         preds = []
         for mname in order:
-            if mname in reduced_feature_names:  # reduced model
+            if mname in reduced_feature_names:  
                 cols = reduced_feature_names
                 preds.append(base_models[mname].predict(df_s[cols]))
             else:
                 preds.append(base_models[mname].predict(df_s))
         yhat_log = np.vstack(preds).T @ weights
-    else:  # Single model
+    else:
         yhat_log = model_obj.predict(df_s)
 
     return inv_y_local(yhat_log)
@@ -58,22 +58,20 @@ def predict_price(df_raw: pd.DataFrame):
 # ---- Streamlit UI ----
 st.title("🏠 Flat Price Predictor – Prague")
 
-# Example inputs (restrict to encoder categories)
-district_options = label_encoders["district"].classes_
-building_type_options = label_encoders["building_type"].classes_
+# Generate inputs dynamically from encoders
+inputs = {}
+for col, le in label_encoders.items():
+    options = le.classes_
+    choice = st.selectbox(f"{col}", options)
+    inputs[col] = choice
 
-district = st.selectbox("District", district_options)
-building_type = st.selectbox("Building Type", building_type_options)
+# Add numerical fields (customize according to your dataset)
 size = st.number_input("Size (m²)", min_value=10, max_value=300, value=50)
 rooms = st.number_input("Rooms", min_value=1, max_value=10, value=2)
+inputs["size"] = size
+inputs["rooms"] = rooms
 
 if st.button("Predict Price"):
-    incoming = pd.DataFrame([{
-        "district": district,
-        "building_type": building_type,
-        "size": size,
-        "rooms": rooms
-    }])
-
+    incoming = pd.DataFrame([inputs])
     pred = predict_price(incoming)
     st.success(f"💰 Estimated price: {pred[0]:,.0f} CZK")
