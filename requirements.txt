@@ -1,8 +1,12 @@
 pandas
+numpy
+scikit-learn
+catboost
+xgboost
+lightgbm
+matplotlib
+seaborn
 plotly
 streamlit
-yfinance
-pandas-datareader
-prophet
 joblib
 pathlib
