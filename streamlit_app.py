@@ -32,10 +32,12 @@ def sanitize_columns(df):
         df[m] = np.nan
     return df.rename(columns=sanit_map)
 
-def apply_label_encoders(df):
+def apply_label_encoders(df, label_encoders):
     for c, le in label_encoders.items():
         if c in df.columns:
-            df[c] = le.transform(df[c].astype("string").fillna("NA_LE"))
+            df[c] = df[c].astype("string").fillna("NA_LE")
+            df[c] = df[c].apply(lambda x: x if x in le.classes_ else "NA_LE")
+            df[c] = le.transform(df[c])
     return df
 
 def predict_price(df_raw: pd.DataFrame):
@@ -67,7 +69,8 @@ st.write("Enter flat details to predict price (CZK).")
 
 rooms = st.number_input("Number of rooms", min_value=1, max_value=10, value=2)
 size = st.number_input("Size (m²)", min_value=15, max_value=300, value=60)
-district = st.selectbox("District", options=list(label_encoders["district"].classes_))
+options = prep["label_encoders"]["district"].classes_
+district = st.selectbox("District", options)
 
 if st.button("Predict price"):
     incoming = pd.DataFrame([{
