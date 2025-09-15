@@ -92,7 +92,6 @@ def inv_target_transform(y, tgt):
     if tgt == "log": return np.exp(y)
     return y
 
-
 # -----------------------
 # Load artifacts
 # -----------------------
@@ -105,7 +104,12 @@ except Exception as e:
 label_encoders = prep.get("label_encoders", {})
 defaults = prep.get("feature_defaults", {})
 target_transform = prep.get("target_transform", "log")
-model_features = prep.get("reduced_feature_names", list(prep.get("sanit_map", {}).values()))
+
+# 🔑 Use the model’s own feature names if available
+if hasattr(model_obj, "feature_names_"):
+    model_features = model_obj.feature_names_
+else:
+    model_features = prep.get("feature_names", list(prep.get("sanit_map", {}).values()))
 
 # -----------------------
 # UI
@@ -114,7 +118,7 @@ st.title("🏠 Flat Price Predictor — Prague")
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    square_meters = st.number_input("Size (m²)", 5, 2000, 50)
+    usable_area = st.number_input("Size (m²)", 5, 2000, 50)
 with col2:
     district = st.selectbox("District", label_encoders.get("district").classes_
                             if "district" in label_encoders else ["NA_LE"])
@@ -125,17 +129,17 @@ with col3:
 layout = st.selectbox("Layout", label_encoders.get("layout").classes_
                       if "layout" in label_encoders else ["NA_LE"])
 
-# advanced section
+# advanced section (as flags for simplicity)
 with st.expander("Advanced options"):
-    terrace = st.checkbox("Terrace")
-    garage = st.checkbox("Garage")
-    cellar = st.checkbox("Cellar")
+    terrace = st.checkbox("Has Terrace?")
+    garage = st.checkbox("Has Garage?")
+    cellar = st.checkbox("Has Cellar?")
 
 # -----------------------
 # Prediction
 # -----------------------
 provided = {
-    "square_meters": square_meters,
+    "usable_area": usable_area,
     "district": district,
     "ownership": ownership,
     "layout": layout,
@@ -146,18 +150,19 @@ provided = {
 
 if st.button("Predict price"):
     df_in = build_input_dataframe(provided, model_features, prep)
+    df_in = df_in[model_features]   # ensure correct order
 
     # sanity check: unrealistic combos
-    if str(layout).startswith("6") and square_meters < 60:
+    if str(layout).startswith("6") and usable_area < 60:
         st.warning("⚠️ Unusual combo: very small area with 6+ rooms")
 
     try:
         if hasattr(model_obj, "predict"):
-            preds = model_obj.predict(df_in[model_features])
+            preds = model_obj.predict(df_in)
         else:
             # blend dict, simple fallback
-            preds = np.mean([m.predict(df_in[model_features])
-                             for m in model_obj.get("base_models", {}).values()], axis=0)
+            preds = np.mean([m.predict(df_in) for m in model_obj.get("base_models", {}).values()], axis=0)
+
         yhat = inv_target_transform(preds, target_transform)
         price = float(yhat.ravel()[0])
         st.success(f"💰 Estimated price: {price:,.0f} CZK")
@@ -179,9 +184,10 @@ if st.button("Predict price"):
     preds_curve = []
     for s in sizes:
         prov = provided.copy()
-        prov["square_meters"] = s
+        prov["usable_area"] = s
         df_tmp = build_input_dataframe(prov, model_features, prep)
-        preds_curve.append(inv_target_transform(model_obj.predict(df_tmp[model_features]), target_transform))
+        df_tmp = df_tmp[model_features]
+        preds_curve.append(inv_target_transform(model_obj.predict(df_tmp), target_transform))
     st.line_chart(pd.DataFrame({"Size": sizes, "Price": np.ravel(preds_curve)}).set_index("Size"))
 
 # -----------------------
