@@ -34,31 +34,32 @@ def inv_y(y):
     return y
 
 def sanitize_columns(df, sanit_map):
-    missing = set(sanit_map.keys()) - set(df.columns)
-    for m in missing:
-        df[m] = np.nan
+    """Ensure all training-time columns exist in input and rename consistently."""
+    for col in sanit_map.keys():
+        if col not in df.columns:
+            df[col] = np.nan
     return df.rename(columns=sanit_map)
 
 def apply_label_encoders(df, label_encoders):
+    """Apply label encoders safely with fallback for unseen values."""
     for c, le in label_encoders.items():
         if c in df.columns:
             vals = df[c].astype("string").fillna("__MISSING__")
-            # Replace unseen labels with most frequent class (index 0)
             safe_vals = []
             for v in vals:
                 if v in le.classes_:
                     safe_vals.append(v)
                 else:
-                    safe_vals.append(le.classes_[0])  # fallback
+                    safe_vals.append(le.classes_[0])  # fallback to first class
             df[c] = le.transform(safe_vals)
     return df
-
 
 def safe_default(col, fallback=1):
     """Ensure defaults are valid for Streamlit inputs (no negatives/zeros where invalid)."""
     val = feature_defaults.get(col, fallback)
     try:
-        if np.isnan(val): return fallback
+        if np.isnan(val):
+            return fallback
         if isinstance(val, (int, float)):
             return max(fallback, int(val))
     except Exception:
@@ -72,7 +73,7 @@ def predict_price(df_raw: pd.DataFrame):
     # Reorder columns exactly as in training
     X = df_s.reindex(columns=reduced_feature_names, fill_value=0)
 
-    # Handle blend model
+    # Handle blend model vs single model
     if isinstance(model_obj, dict) and "weights" in model_obj:
         preds = []
         for mname, base_model in model_obj["base_models"].items():
@@ -97,6 +98,10 @@ with st.form("prediction_form"):
         usable_area = st.number_input(
             "Usable area (m²)", min_value=1, max_value=5000,
             value=safe_default("usable_area", 50)
+        )
+        total_area = st.number_input(
+            "Total area (m²)", min_value=1, max_value=5000,
+            value=safe_default("total_area", 50)
         )
         square_meters = st.number_input(
             "Square meters (m²)", min_value=1, max_value=5000,
@@ -138,6 +143,7 @@ with st.form("prediction_form"):
 if submitted:
     input_data = pd.DataFrame([{
         "usable_area": usable_area,
+        "total_area": total_area,
         "square_meters": square_meters,
         "floor_number": floor_number,
         "total_floors": total_floors,
