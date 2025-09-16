@@ -42,8 +42,17 @@ def sanitize_columns(df, sanit_map):
 def apply_label_encoders(df, label_encoders):
     for c, le in label_encoders.items():
         if c in df.columns:
-            df[c] = le.transform(df[c].astype("string").fillna("NA_LE"))
+            vals = df[c].astype("string").fillna("__MISSING__")
+            # Replace unseen labels with most frequent class (index 0)
+            safe_vals = []
+            for v in vals:
+                if v in le.classes_:
+                    safe_vals.append(v)
+                else:
+                    safe_vals.append(le.classes_[0])  # fallback
+            df[c] = le.transform(safe_vals)
     return df
+
 
 def safe_default(col, fallback=1):
     """Ensure defaults are valid for Streamlit inputs (no negatives/zeros where invalid)."""
