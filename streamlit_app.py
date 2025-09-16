@@ -20,7 +20,7 @@ st.set_page_config(layout="wide", page_title="🏠 Flat Price Predictor")
 # -----------------------
 @st.cache_resource
 def load_artifacts(artifact_dir: Path = ARTIFACT_DIR) -> Tuple[Any, Dict[str, Any]]:
-    # 1) model
+    # Load model
     model_path = None
     for fn in MODEL_FILENAMES:
         p = artifact_dir / fn
@@ -32,7 +32,7 @@ def load_artifacts(artifact_dir: Path = ARTIFACT_DIR) -> Tuple[Any, Dict[str, An
 
     model_obj = joblib.load(model_path)
 
-    # 2) preprocessing
+    # Load preprocessing
     prep_path = artifact_dir / PREP_FILENAME
     if not prep_path.exists():
         raise FileNotFoundError(f"No preprocessing file at {prep_path}")
@@ -92,6 +92,7 @@ def inv_target_transform(y, tgt):
     if tgt == "log": return np.exp(y)
     return y
 
+
 # -----------------------
 # Load artifacts
 # -----------------------
@@ -104,12 +105,7 @@ except Exception as e:
 label_encoders = prep.get("label_encoders", {})
 defaults = prep.get("feature_defaults", {})
 target_transform = prep.get("target_transform", "log")
-
-# 🔑 Use the model’s own feature names if available
-if hasattr(model_obj, "feature_names_"):
-    model_features = model_obj.feature_names_
-else:
-    model_features = prep.get("feature_names", list(prep.get("sanit_map", {}).values()))
+model_features = prep.get("reduced_feature_names", list(prep.get("sanit_map", {}).values()))
 
 # -----------------------
 # UI
@@ -118,31 +114,45 @@ st.title("🏠 Flat Price Predictor — Prague")
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    usable_area = st.number_input("Size (m²)", 5, 2000, 50)
+    usable_area = st.number_input("Usable area (m²)", 5, 2000, int(defaults.get("usable_area", 50)))
 with col2:
+    total_area = st.number_input("Total area (m²)", 5, 2000, int(defaults.get("total_area", 50)))
+with col3:
+    floorage = st.number_input("Floorage (floor number)", 0, 50, int(defaults.get("floorage", 1)))
+
+col4, col5 = st.columns(2)
+with col4:
     district = st.selectbox("District", label_encoders.get("district").classes_
                             if "district" in label_encoders else ["NA_LE"])
-with col3:
-    ownership = st.selectbox("Ownership", label_encoders.get("ownership").classes_
-                             if "ownership" in label_encoders else ["NA_LE"])
+with col5:
+    building = st.selectbox("Building type", label_encoders.get("building").classes_
+                            if "building" in label_encoders else ["NA_LE"])
 
+ownership = st.selectbox("Ownership", label_encoders.get("ownership").classes_
+                         if "ownership" in label_encoders else ["NA_LE"])
 layout = st.selectbox("Layout", label_encoders.get("layout").classes_
                       if "layout" in label_encoders else ["NA_LE"])
+cadastral_area = st.selectbox("Cadastral area", label_encoders.get("cadastral_area").classes_
+                              if "cadastral_area" in label_encoders else ["NA_LE"])
 
-# advanced section (as flags for simplicity)
+# advanced section
 with st.expander("Advanced options"):
-    terrace = st.checkbox("Has Terrace?")
-    garage = st.checkbox("Has Garage?")
-    cellar = st.checkbox("Has Cellar?")
+    terrace = st.checkbox("Terrace")
+    garage = st.checkbox("Garage")
+    cellar = st.checkbox("Cellar")
 
 # -----------------------
 # Prediction
 # -----------------------
 provided = {
     "usable_area": usable_area,
+    "total_area": total_area,
+    "floorage": floorage,
     "district": district,
+    "building": building,
     "ownership": ownership,
     "layout": layout,
+    "cadastral_area": cadastral_area,
     "terrace": int(terrace),
     "garage": int(garage),
     "cellar": int(cellar),
@@ -150,26 +160,20 @@ provided = {
 
 if st.button("Predict price"):
     df_in = build_input_dataframe(provided, model_features, prep)
-    df_in = df_in[model_features]   # ensure correct order
-
-    # sanity check: unrealistic combos
-    if str(layout).startswith("6") and usable_area < 60:
-        st.warning("⚠️ Unusual combo: very small area with 6+ rooms")
 
     try:
         if hasattr(model_obj, "predict"):
-            preds = model_obj.predict(df_in)
+            preds = model_obj.predict(df_in[model_features])
         else:
-            # blend dict, simple fallback
-            preds = np.mean([m.predict(df_in) for m in model_obj.get("base_models", {}).values()], axis=0)
-
+            preds = np.mean([m.predict(df_in[model_features])
+                             for m in model_obj.get("base_models", {}).values()], axis=0)
         yhat = inv_target_transform(preds, target_transform)
         price = float(yhat.ravel()[0])
         st.success(f"💰 Estimated price: {price:,.0f} CZK")
     except Exception as e:
         st.error(f"Prediction failed: {e}")
 
-    # map (dummy coords per district)
+    # Map (approx coords for districts)
     coords = {
         "Prague 1": (50.088, 14.420),
         "Prague 2": (50.071, 14.437),
@@ -178,17 +182,19 @@ if st.button("Predict price"):
     if str(district) in coords:
         st.map(pd.DataFrame([{"lat": coords[district][0], "lon": coords[district][1]}]))
 
-    # scatter plot example
-    st.subheader("📊 Sensitivity: Price vs. Size (fixed district/layout)")
+    # Sensitivity curve
+    st.subheader("📊 Sensitivity: Price vs. Usable area")
     sizes = np.linspace(20, 200, 20)
     preds_curve = []
     for s in sizes:
         prov = provided.copy()
         prov["usable_area"] = s
         df_tmp = build_input_dataframe(prov, model_features, prep)
-        df_tmp = df_tmp[model_features]
-        preds_curve.append(inv_target_transform(model_obj.predict(df_tmp), target_transform))
-    st.line_chart(pd.DataFrame({"Size": sizes, "Price": np.ravel(preds_curve)}).set_index("Size"))
+        try:
+            preds_curve.append(inv_target_transform(model_obj.predict(df_tmp[model_features]), target_transform))
+        except Exception:
+            preds_curve.append(np.nan)
+    st.line_chart(pd.DataFrame({"Usable area": sizes, "Price": np.ravel(preds_curve)}).set_index("Usable area"))
 
 # -----------------------
 # Preprocessing summary
@@ -196,4 +202,12 @@ if st.button("Predict price"):
 with st.expander("Preprocessing summary"):
     st.write("Encoders:", list(label_encoders.keys()))
     st.write("Expected features (first 10):", model_features[:10])
-    st.write("Defaults (sample):", {k: defaults[k] for k in list(defaults)[:5]})
+
+    if defaults:
+        df_defaults = pd.DataFrame([
+            {"Feature": k, "Default": v, "Type": "categorical" if k in label_encoders else "numeric"}
+            for k, v in list(defaults.items())[:10]
+        ])
+        st.dataframe(df_defaults)
+    else:
+        st.warning("⚠️ No defaults found in preprocessing.joblib")
