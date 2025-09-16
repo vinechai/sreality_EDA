@@ -1,0 +1,39 @@
+# Model Card
+
+**Project**: Housing Price Prediction
+**Author**: root
+**Date**: 2025-09-16 18:43:12
+**Environment**: Python 3.12.11
+
+## Data
+- Source: [your dataset name or link]
+- Train size: 2745 rows
+- Valid size: 687 rows
+- Test size: 859 rows
+- Target transform: log
+
+## Model
+- Final winner: Blend
+- Blend base models: CatBoost, GradientBoosting, XGBoost
+- Weights: {'CatBoost': np.float64(0.5336), 'GradientBoosting': np.float64(0.2634), 'XGBoost': np.float64(0.203)}
+
+## Performance
+On **test set**:
+- RMSE: 0.17329
+- MAE: 0.11903
+- R²: 0.87207
+- Median absolute % error: 0.07833
+
+## Interpretation
+- Top features: square_meters, total_area, district, ownership, layout
+- See `plots/` for permutation importance, PDP, SHAP plots.
+
+## Limitations
+- May not generalize to regions/markets not present in training data.
+- Sensitive to feature encoding and target transformation.
+
+## Usage
+Load artifacts with `joblib.load()` from `deployable/`.
+Use `predict_price(df)` function to get predictions.
+- Input: raw dataframe with same schema as training data.
+- Output: predicted housing price (float).
