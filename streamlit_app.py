@@ -163,6 +163,7 @@ with col1:
     # sync automatically
     square_meters = usable_area
     total_area = usable_area
+    floorage = usable_area
 
 with col2:
     district_opts = list(map(str, label_encoders.get("district", []).classes_)) if "district" in label_encoders else ["Praha 1"]
