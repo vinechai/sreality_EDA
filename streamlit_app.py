@@ -251,7 +251,7 @@ if st.button("Predict price"):
             continue
     
     df_map = pd.DataFrame(district_baselines)
-    
+        
     # Normalize price per m²
     min_p, max_p = df_map["price_m2"].min(), df_map["price_m2"].max()
     df_map["price_norm"] = (
@@ -259,11 +259,11 @@ if st.button("Predict price"):
     )
     
     # Colors & sizes
-    df_map["color_r"] = (50 + df_map["price_norm"] * 200).clip(0, 255)   # redder = expensive
-    df_map["color_g"] = (200 - df_map["price_norm"] * 150).clip(0, 255)  # greener = cheaper
+    df_map["color_r"] = (50 + df_map["price_norm"] * 200).clip(0, 255)
+    df_map["color_g"] = (200 - df_map["price_norm"] * 150).clip(0, 255)
     df_map["color_b"] = 80
     df_map["color_a"] = 180
-    df_map["radius"] = df_map["price_norm"] * 300 + 100  # smaller radii to avoid overlap
+    df_map["radius"] = df_map["price_norm"] * 300 + 100
     
     layer = pdk.Layer(
         "ScatterplotLayer",
@@ -272,11 +272,17 @@ if st.button("Predict price"):
         get_fill_color=["color_r", "color_g", "color_b", "color_a"],
         get_radius="radius",
         pickable=True,
-        get_tooltip="district + ': ' + String(price_m2.toFixed(0)) + ' CZK/m²'"
     )
     
     view_state = pdk.ViewState(latitude=50.08, longitude=14.42, zoom=11)
-    st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip={"text": "{district}: {price_m2} CZK/m²"}))
+    
+    st.pydeck_chart(
+        pdk.Deck(
+            layers=[layer],
+            initial_view_state=view_state,
+            tooltip={"text": "{district}\n{price_m2} CZK/m²"},
+        )
+    )
 
 
     # -----------------------
