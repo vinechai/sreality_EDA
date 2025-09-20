@@ -190,6 +190,7 @@ provided = {
     "terrace": terrace,
     "garage": garage,
     "cellar": cellar,
+    "floorage": floorage,
 }
 
 if st.button("Predict price"):
