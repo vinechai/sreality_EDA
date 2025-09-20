@@ -236,12 +236,19 @@ if st.button("Predict price"):
             continue
 
     df_map = pd.DataFrame(district_baselines)
+    df_map["color_r"] = (200 - df_map["price_norm"] * 200).clip(0, 255)
+    df_map["color_g"] = (50 + df_map["price_norm"] * 100).clip(0, 255)
+    df_map["color_b"] = 50
+    df_map["color_a"] = 160
+    df_map["radius"] = df_map["price_norm"] * 2000 + 1000
+    
     layer = pdk.Layer(
         "ScatterplotLayer",
         data=df_map,
-        get_position="[lon, lat]",
-        get_fill_color="[255, (1 - price / df_map['price'].max()) * 255, 100, 200]",
-        get_radius=500,
+        get_position=["lon", "lat"],
+        get_fill_color=["color_r", "color_g", "color_b", "color_a"],
+        get_radius="radius",
+        pickable=True,
     )
     view_state = pdk.ViewState(latitude=50.08, longitude=14.42, zoom=10)
     st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state))
