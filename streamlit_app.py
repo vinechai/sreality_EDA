@@ -216,13 +216,25 @@ if st.button("Predict price"):
     # Map: baseline prices by district
     # -----------------------
     st.subheader("🗺 District price map")
+    
+    DISTRICT_COORDS = {
+        "Praha 1": (50.087, 14.421),
+        "Praha 2": (50.071, 14.436),
+        "Praha 3": (50.082, 14.454),
+        "Praha 4": (50.036, 14.428),
+        "Praha 5": (50.067, 14.389),
+        "Praha 6": (50.099, 14.366),
+        "Praha 7": (50.107, 14.449),
+        "Praha 8": (50.108, 14.474),
+        "Praha 9": (50.112, 14.514),
+        "Praha 10": (50.070, 14.488),
+    }
+    
     district_baselines = []
     for d in district_opts:
         prov = provided.copy()
         prov["district"] = d
-        prov["usable_area"] = 60
-        prov["square_meters"] = 60
-        prov["total_area"] = 60
+        prov["usable_area"] = prov["square_meters"] = prov["total_area"] = 60
         df_tmp = build_input_row(prov, model_feature_names, prep)
         df_tmp = df_tmp.reindex(columns=model_feature_names, fill_value=0)
         try:
@@ -230,26 +242,20 @@ if st.button("Predict price"):
                 [m.predict(df_tmp) for m in model_obj.get("base_models", {}).values()], axis=0
             )
             p = inv_target_transform(np.asarray(plog).ravel(), target_transform)[0]
-            coords = (50.08, 14.42)  # fallback center, TODO: replace with district polygons
+            coords = DISTRICT_COORDS.get(d, (50.08, 14.42))
             district_baselines.append({"district": d, "lat": coords[0], "lon": coords[1], "price": p})
         except Exception:
             continue
-
+    
     df_map = pd.DataFrame(district_baselines)
     
-    # Ensure we have a price column
-    if "price" in df_map.columns:
-        # Normalize prices to 0..1
-        min_p, max_p = df_map["price"].min(), df_map["price"].max()
-        if max_p > min_p:
-            df_map["price_norm"] = (df_map["price"] - min_p) / (max_p - min_p)
-        else:
-            df_map["price_norm"] = 0.5  # fallback if all prices same
-    else:
-        st.error("District baseline data is missing 'price'. Cannot draw map.")
-        st.stop()
+    # Normalize prices
+    min_p, max_p = df_map["price"].min(), df_map["price"].max()
+    df_map["price_norm"] = (
+        (df_map["price"] - min_p) / (max_p - min_p) if max_p > min_p else 0.5
+    )
     
-    # Now safely compute colors
+    # Colors & sizes
     df_map["color_r"] = (200 - df_map["price_norm"] * 200).clip(0, 255)
     df_map["color_g"] = (50 + df_map["price_norm"] * 100).clip(0, 255)
     df_map["color_b"] = 50
@@ -264,9 +270,10 @@ if st.button("Predict price"):
         get_radius="radius",
         pickable=True,
     )
-
-    view_state = pdk.ViewState(latitude=50.08, longitude=14.42, zoom=10)
+    
+    view_state = pdk.ViewState(latitude=50.08, longitude=14.42, zoom=11)
     st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state))
+    
 
     # -----------------------
     # Sensitivity plot
