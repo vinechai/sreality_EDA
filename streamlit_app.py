@@ -231,36 +231,39 @@ if st.button("Predict price"):
     }
     
     district_baselines = []
+    flat_size = 60  # reference size
     for d in district_opts:
         prov = provided.copy()
         prov["district"] = d
-        prov["usable_area"] = prov["square_meters"] = prov["total_area"] = 60
+        prov["usable_area"] = prov["square_meters"] = prov["total_area"] = flat_size
         df_tmp = build_input_row(prov, model_feature_names, prep)
         df_tmp = df_tmp.reindex(columns=model_feature_names, fill_value=0)
         try:
             plog = model_obj.predict(df_tmp) if not isinstance(model_obj, dict) else np.mean(
                 [m.predict(df_tmp) for m in model_obj.get("base_models", {}).values()], axis=0
             )
-            p = inv_target_transform(np.asarray(plog).ravel(), target_transform)[0]
+            price = inv_target_transform(np.asarray(plog).ravel(), target_transform)[0]
+            price_m2 = price / flat_size
             coords = DISTRICT_COORDS.get(d, (50.08, 14.42))
-            district_baselines.append({"district": d, "lat": coords[0], "lon": coords[1], "price": p})
+            district_baselines.append({"district": d, "lat": coords[0], "lon": coords[1],
+                                       "price": price, "price_m2": price_m2})
         except Exception:
             continue
     
     df_map = pd.DataFrame(district_baselines)
     
-    # Normalize prices
-    min_p, max_p = df_map["price"].min(), df_map["price"].max()
+    # Normalize price per m²
+    min_p, max_p = df_map["price_m2"].min(), df_map["price_m2"].max()
     df_map["price_norm"] = (
-        (df_map["price"] - min_p) / (max_p - min_p) if max_p > min_p else 0.5
+        (df_map["price_m2"] - min_p) / (max_p - min_p) if max_p > min_p else 0.5
     )
     
     # Colors & sizes
-    df_map["color_r"] = (200 - df_map["price_norm"] * 200).clip(0, 255)
-    df_map["color_g"] = (50 + df_map["price_norm"] * 100).clip(0, 255)
-    df_map["color_b"] = 50
-    df_map["color_a"] = 160
-    df_map["radius"] = df_map["price_norm"] * 2000 + 1000
+    df_map["color_r"] = (50 + df_map["price_norm"] * 200).clip(0, 255)   # redder = expensive
+    df_map["color_g"] = (200 - df_map["price_norm"] * 150).clip(0, 255)  # greener = cheaper
+    df_map["color_b"] = 80
+    df_map["color_a"] = 180
+    df_map["radius"] = df_map["price_norm"] * 300 + 100  # smaller radii to avoid overlap
     
     layer = pdk.Layer(
         "ScatterplotLayer",
@@ -269,11 +272,12 @@ if st.button("Predict price"):
         get_fill_color=["color_r", "color_g", "color_b", "color_a"],
         get_radius="radius",
         pickable=True,
+        get_tooltip="district + ': ' + String(price_m2.toFixed(0)) + ' CZK/m²'"
     )
     
     view_state = pdk.ViewState(latitude=50.08, longitude=14.42, zoom=11)
-    st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state))
-    
+    st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip={"text": "{district}: {price_m2} CZK/m²"}))
+
 
     # -----------------------
     # Sensitivity plot
