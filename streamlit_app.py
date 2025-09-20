@@ -235,35 +235,35 @@ if st.button("Predict price"):
         except Exception:
             continue
 
-df_map = pd.DataFrame(district_baselines)
-
-# Ensure we have a price column
-if "price" in df_map.columns:
-    # Normalize prices to 0..1
-    min_p, max_p = df_map["price"].min(), df_map["price"].max()
-    if max_p > min_p:
-        df_map["price_norm"] = (df_map["price"] - min_p) / (max_p - min_p)
+    df_map = pd.DataFrame(district_baselines)
+    
+    # Ensure we have a price column
+    if "price" in df_map.columns:
+        # Normalize prices to 0..1
+        min_p, max_p = df_map["price"].min(), df_map["price"].max()
+        if max_p > min_p:
+            df_map["price_norm"] = (df_map["price"] - min_p) / (max_p - min_p)
+        else:
+            df_map["price_norm"] = 0.5  # fallback if all prices same
     else:
-        df_map["price_norm"] = 0.5  # fallback if all prices same
-else:
-    st.error("District baseline data is missing 'price'. Cannot draw map.")
-    st.stop()
-
-# Now safely compute colors
-df_map["color_r"] = (200 - df_map["price_norm"] * 200).clip(0, 255)
-df_map["color_g"] = (50 + df_map["price_norm"] * 100).clip(0, 255)
-df_map["color_b"] = 50
-df_map["color_a"] = 160
-df_map["radius"] = df_map["price_norm"] * 2000 + 1000
-
-layer = pdk.Layer(
-    "ScatterplotLayer",
-    data=df_map,
-    get_position=["lon", "lat"],
-    get_fill_color=["color_r", "color_g", "color_b", "color_a"],
-    get_radius="radius",
-    pickable=True,
-)
+        st.error("District baseline data is missing 'price'. Cannot draw map.")
+        st.stop()
+    
+    # Now safely compute colors
+    df_map["color_r"] = (200 - df_map["price_norm"] * 200).clip(0, 255)
+    df_map["color_g"] = (50 + df_map["price_norm"] * 100).clip(0, 255)
+    df_map["color_b"] = 50
+    df_map["color_a"] = 160
+    df_map["radius"] = df_map["price_norm"] * 2000 + 1000
+    
+    layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=df_map,
+        get_position=["lon", "lat"],
+        get_fill_color=["color_r", "color_g", "color_b", "color_a"],
+        get_radius="radius",
+        pickable=True,
+    )
 
     view_state = pdk.ViewState(latitude=50.08, longitude=14.42, zoom=10)
     st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state))
