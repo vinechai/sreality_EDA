@@ -221,18 +221,27 @@ if st.button("Predict price"):
     # -----------------------
     st.subheader("🗺 District price map")
     
-    DISTRICT_COORDS = {
+    district_coords = {
         "Praha 1": (50.087, 14.421),
-        "Praha 2": (50.071, 14.436),
-        "Praha 3": (50.082, 14.454),
-        "Praha 4": (50.036, 14.428),
-        "Praha 5": (50.067, 14.389),
-        "Praha 6": (50.099, 14.366),
-        "Praha 7": (50.107, 14.449),
-        "Praha 8": (50.108, 14.474),
-        "Praha 9": (50.112, 14.514),
-        "Praha 10": (50.070, 14.488),
+        "Praha 2": (50.071, 14.434),
+        "Praha 3": (50.084, 14.455),
+        "Praha 4": (50.038, 14.437),
+        "Praha 5": (50.065, 14.389),
+        "Praha 6": (50.098, 14.363),
+        "Praha 7": (50.107, 14.450),
+        "Praha 8": (50.109, 14.474),
+        "Praha 9": (50.111, 14.515),
+        "Praha 10": (50.072, 14.490),
+        "Praha 11": (50.029, 14.514),
+        "Praha 12": (50.005, 14.451),
+        "Praha 13": (50.051, 14.335),
+        "Praha 14": (50.103, 14.551),
+        "Praha 15": (50.080, 14.558),
     }
+    df_map["lat"] = df_map["district"].map(lambda d: district_coords.get(d, (50.08, 14.42))[0])
+    df_map["lon"] = df_map["district"].map(lambda d: district_coords.get(d, (50.08, 14.42))[1])
+
+
     
     district_baselines = []
     flat_size = 60  # reference size
