@@ -208,6 +208,8 @@ if st.button("Predict price"):
 
         preds = inv_target_transform(np.asarray(preds_log).ravel(), target_transform)
         price = float(preds[0])
+        st.write("Model input row:", df_in)
+        st.write("Model features:", model_feature_names)
         st.success(f"💰 Estimated price: {price:,.0f} CZK")
     except Exception as e:
         st.error(f"Prediction failed: {e}")
