@@ -238,8 +238,8 @@ if st.button("Predict price"):
         "Praha 14": (50.103, 14.551),
         "Praha 15": (50.080, 14.558),
     }
-    # df_map["lat"] = df_map["district"].map(lambda d: district_coords.get(d, (50.08, 14.42))[0])
-    # df_map["lon"] = df_map["district"].map(lambda d: district_coords.get(d, (50.08, 14.42))[1])
+    df_map["lat"] = df_map["district"].map(lambda d: district_coords.get(d, (50.08, 14.42))[0])
+    df_map["lon"] = df_map["district"].map(lambda d: district_coords.get(d, (50.08, 14.42))[1])
 
 
     
