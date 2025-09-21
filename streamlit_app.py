@@ -359,7 +359,16 @@ if st.button("Predict price"):
         df_map["color_g"] = (200 - df_map["price_norm"] * 150).clip(0, 255)
         df_map["color_b"] = 80
         df_map["color_a"] = 180
-        df_map["radius"] = df_map["price_norm"] * 300 + 100
+        df_map["radius"] = df_map["price_norm"] * 600 + 200
+
+        # Highlight selected district
+        df_map.loc[df_map["district"] == district, "radius"] *= 1.8
+        df_map.loc[df_map["district"] == district, "color_r"] = 255
+        df_map.loc[df_map["district"] == district, "color_g"] = 50
+        df_map.loc[df_map["district"] == district, "color_b"] = 50
+
+        coords_selected = DISTRICT_COORDS.get(district, (50.08, 14.42))
+        view_state = pdk.ViewState(latitude=coords_selected[0], longitude=coords_selected[1], zoom=12)
 
         layer = pdk.Layer(
             "ScatterplotLayer",
@@ -369,7 +378,7 @@ if st.button("Predict price"):
             get_radius="radius",
             pickable=True,
         )
-        view_state = pdk.ViewState(latitude=50.08, longitude=14.42, zoom=11)
+        # view_state = pdk.ViewState(latitude=50.08, longitude=14.42, zoom=11)
         st.pydeck_chart(
             pdk.Deck(
                 layers=[layer],
