@@ -392,7 +392,6 @@ if st.button("Predict price"):
             layers=[layer_main, halo_layer],
             initial_view_state=view_state,
             tooltip={"text": "{district}\n{price_m2} CZK/m²"},
-            map_style="mapbox://styles/mapbox/dark-v11",  # dark map to match dark UI
         ))
 
     # -----------------------
