@@ -317,37 +317,43 @@ if st.button("Predict price"):
     # Map: baseline prices by district
     # -----------------------
     st.subheader("🗺 District price map")
-
     district_baselines = []
     flat_size = 60  # reference size
+    reference_layouts = ["1+kt", "1+1", "2+kt", "2+1", "3+kt", "2+1", "4+kt", "4+1"]  # layouts to average over
+
     for d in district_opts:
-        prov = provided.copy()
-        prov.update(
-            {
+        layout_prices = []
+        for lay in reference_layouts:
+            prov = provided.copy()
+            prov.update({
                 "district": d,
                 "usable_area": flat_size,
                 "square_meters": flat_size,
                 "total_area": flat_size,
-            }
-        )
-        df_tmp = build_input_row(prov, model_feature_names, prep)
-        df_tmp = df_tmp.reindex(columns=model_feature_names, fill_value=0)
-        try:
-            plog = predict_with_blend(model_obj, df_tmp, model_feature_names)
-            price = inv_target_transform(np.asarray(plog).ravel(), target_transform)[0]
-            price_m2 = price / flat_size
+                "layout": lay,
+                "terrace": 0,
+                "garage": 0,
+                "cellar": 0
+            })
+            df_tmp = build_input_row(prov, model_feature_names, prep)
+            df_tmp = df_tmp.reindex(columns=model_feature_names, fill_value=0)
+            try:
+                plog = predict_with_blend(model_obj, df_tmp, model_feature_names)
+                price = inv_target_transform(np.asarray(plog).ravel(), target_transform)[0]
+                layout_prices.append(price / flat_size)
+            except Exception:
+                continue
+
+        if layout_prices:  # take average across layouts
+            avg_price_m2 = np.mean(layout_prices)
             coords = DISTRICT_COORDS.get(d, (50.08, 14.42))
-            district_baselines.append(
-                {
-                    "district": d,
-                    "lat": coords[0],
-                    "lon": coords[1],
-                    "price": price,
-                    "price_m2": price_m2,
-                }
-            )
-        except Exception:
-            continue
+            district_baselines.append({
+                "district": d,
+                "lat": coords[0],
+                "lon": coords[1],
+                "price_m2": avg_price_m2
+            })
+
 
     df_map = pd.DataFrame(district_baselines)
 
