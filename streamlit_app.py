@@ -27,19 +27,27 @@ def load_artifacts(artifact_dir: Path = ARTIFACT_DIR):
             model_path = p
             break
     if model_path is None:
-        raise FileNotFoundError(f"No model file found in {artifact_dir}. Expected one of {MODEL_FILENAMES}")
+        raise FileNotFoundError(
+            f"No model file found in {artifact_dir}. Expected one of {MODEL_FILENAMES}"
+        )
 
     model_obj = joblib.load(model_path)
 
     prep_path = artifact_dir / PREP_FILENAME
     if not prep_path.exists():
-        raise FileNotFoundError(f"No preprocessing file at {prep_path}. Please save preprocessing.joblib in {artifact_dir}")
+        raise FileNotFoundError(
+            f"No preprocessing file at {prep_path}. Please save preprocessing.joblib in {artifact_dir}"
+        )
 
     prep = joblib.load(prep_path)
     if not isinstance(prep, dict):
-        raise ValueError("preprocessing.joblib must contain a dict (sanit_map, label_encoders, reduced_feature_names/feature_names, target_transform, feature_defaults)")
+        raise ValueError(
+            "preprocessing.joblib must contain a dict (sanit_map, label_encoders, "
+            "reduced_feature_names/feature_names, target_transform, feature_defaults)"
+        )
 
     return model_obj, prep
+
 
 def get_model_feature_names(model_obj: Any, prep: Dict[str, Any]) -> List[str]:
     try:
@@ -71,6 +79,7 @@ def get_model_feature_names(model_obj: Any, prep: Dict[str, Any]) -> List[str]:
 
     raise RuntimeError("Cannot determine model feature names.")
 
+
 def safe_label_encode_scalar(val: Any, le) -> int:
     sval = "" if val is None else str(val)
     classes = list(map(str, getattr(le, "classes_", [])))
@@ -82,7 +91,10 @@ def safe_label_encode_scalar(val: Any, le) -> int:
         return int(le.transform([classes[0]])[0])
     return int(le.transform([sval])[0])
 
-def build_input_row(provided: Dict[str, Any], expected_cols: List[str], prep: Dict[str, Any]) -> pd.DataFrame:
+
+def build_input_row(
+    provided: Dict[str, Any], expected_cols: List[str], prep: Dict[str, Any]
+) -> pd.DataFrame:
     label_encoders: Dict[str, Any] = prep.get("label_encoders", {})
     defaults: Dict[str, Any] = prep.get("feature_defaults", {})
 
@@ -116,12 +128,14 @@ def build_input_row(provided: Dict[str, Any], expected_cols: List[str], prep: Di
             df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
     return df
 
+
 def inv_target_transform(arr: np.ndarray, tgt: str):
     if tgt == "log1p":
         return np.expm1(arr)
     if tgt == "log":
         return np.exp(arr)
     return arr
+
 
 def predict_with_blend(model_obj, df_in, model_feature_names):
     """Handle dict-style blended model with weights and order"""
@@ -135,7 +149,11 @@ def predict_with_blend(model_obj, df_in, model_feature_names):
     if isinstance(weights, dict):
         w = np.array([float(weights.get(n, 0.0)) for n in order], dtype=float)
     else:
-        w = np.asarray(weights, dtype=float) if weights is not None else np.ones(len(order), dtype=float)
+        w = (
+            np.asarray(weights, dtype=float)
+            if weights is not None
+            else np.ones(len(order), dtype=float)
+        )
 
     if w.shape[0] != len(order):
         w = np.ones(len(order), dtype=float)
@@ -149,11 +167,14 @@ def predict_with_blend(model_obj, df_in, model_feature_names):
         if name not in base_dict:
             continue
         mdl = base_dict[name]
-        cols_for_base = list(map(str, getattr(mdl, "feature_names_", model_feature_names)))
+        cols_for_base = list(
+            map(str, getattr(mdl, "feature_names_", model_feature_names))
+        )
         Xb = df_in.reindex(columns=cols_for_base, fill_value=0)
         p = np.asarray(mdl.predict(Xb)).ravel()
         preds_components.append(p * w[i])
     return np.sum(np.vstack(preds_components), axis=0)
+
 
 # -----------------------
 # Load artifacts
@@ -205,24 +226,44 @@ st.title("🏠 Flat Price Predictor — Prague")
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    usable_area = st.number_input("Usable area (m²)", min_value=10, max_value=500,
-                                  value=int(max(20, int(round(feature_defaults.get("usable_area", 50))))))
+    usable_area = st.number_input(
+        "Usable area (m²)",
+        min_value=10,
+        max_value=500,
+        value=int(max(20, int(round(feature_defaults.get("usable_area", 50))))),
+    )
     square_meters = total_area = floorage = usable_area
 
 with col2:
-    district_opts = list(map(str, label_encoders.get("district", []).classes_)) if "district" in label_encoders else ["Praha 1"]
+    district_opts = (
+        list(map(str, label_encoders.get("district", []).classes_))
+        if "district" in label_encoders
+        else ["Praha 1"]
+    )
     district = st.selectbox("District", district_opts, index=0)
 
 with col3:
-    layout_opts = list(map(str, label_encoders.get("layout", []).classes_)) if "layout" in label_encoders else ["1+kk", "2+kk", "3+kk"]
+    layout_opts = (
+        list(map(str, label_encoders.get("layout", []).classes_))
+        if "layout" in label_encoders
+        else ["1+kk", "2+kk", "3+kk"]
+    )
     layout = st.selectbox("Layout", layout_opts, index=0)
 
 col4, col5 = st.columns(2)
 with col4:
-    ownership_opts = list(map(str, label_encoders.get("ownership", []).classes_)) if "ownership" in label_encoders else ["Personal"]
+    ownership_opts = (
+        list(map(str, label_encoders.get("ownership", []).classes_))
+        if "ownership" in label_encoders
+        else ["Personal"]
+    )
     ownership = st.selectbox("Ownership", ownership_opts, index=0)
 with col5:
-    building_opts = list(map(str, label_encoders.get("building", []).classes_)) if "building" in label_encoders else ["Brick", "Panel", "Other"]
+    building_opts = (
+        list(map(str, label_encoders.get("building", []).classes_))
+        if "building" in label_encoders
+        else ["Brick", "Panel", "Other"]
+    )
     building = st.selectbox("Building", building_opts, index=0)
 
 with st.expander("Additional features"):
@@ -247,6 +288,15 @@ provided = {
     "cellar": cellar,
 }
 
+# Warn for unrealistic combos
+if layout in LAYOUT_SIZE_RANGES:
+    min_s, max_s = LAYOUT_SIZE_RANGES[layout]
+    if usable_area < min_s or usable_area > max_s * 1.5:
+        st.warning(
+            f"⚠️ The selected layout {layout} usually has between {min_s}–{max_s} m². "
+            f"Your input ({usable_area} m²) looks unusual."
+        )
+
 if st.button("Predict price"):
     try:
         df_in = build_input_row(provided, model_feature_names, prep)
@@ -269,7 +319,14 @@ if st.button("Predict price"):
     flat_size = 60  # reference size
     for d in district_opts:
         prov = provided.copy()
-        prov.update({"district": d, "usable_area": flat_size, "square_meters": flat_size, "total_area": flat_size})
+        prov.update(
+            {
+                "district": d,
+                "usable_area": flat_size,
+                "square_meters": flat_size,
+                "total_area": flat_size,
+            }
+        )
         df_tmp = build_input_row(prov, model_feature_names, prep)
         df_tmp = df_tmp.reindex(columns=model_feature_names, fill_value=0)
         try:
@@ -277,10 +334,15 @@ if st.button("Predict price"):
             price = inv_target_transform(np.asarray(plog).ravel(), target_transform)[0]
             price_m2 = price / flat_size
             coords = DISTRICT_COORDS.get(d, (50.08, 14.42))
-            district_baselines.append({
-                "district": d, "lat": coords[0], "lon": coords[1],
-                "price": price, "price_m2": price_m2
-            })
+            district_baselines.append(
+                {
+                    "district": d,
+                    "lat": coords[0],
+                    "lon": coords[1],
+                    "price": price,
+                    "price_m2": price_m2,
+                }
+            )
         except Exception:
             continue
 
@@ -288,7 +350,9 @@ if st.button("Predict price"):
 
     if not df_map.empty:
         min_p, max_p = df_map["price_m2"].min(), df_map["price_m2"].max()
-        df_map["price_norm"] = (df_map["price_m2"] - min_p) / (max_p - min_p) if max_p > min_p else 0.5
+        df_map["price_norm"] = (
+            (df_map["price_m2"] - min_p) / (max_p - min_p) if max_p > min_p else 0.5
+        )
 
         df_map["color_r"] = (50 + df_map["price_norm"] * 200).clip(0, 255)
         df_map["color_g"] = (200 - df_map["price_norm"] * 150).clip(0, 255)
@@ -305,11 +369,13 @@ if st.button("Predict price"):
             pickable=True,
         )
         view_state = pdk.ViewState(latitude=50.08, longitude=14.42, zoom=11)
-        st.pydeck_chart(pdk.Deck(
-            layers=[layer],
-            initial_view_state=view_state,
-            tooltip={"text": "{district}\n{price_m2} CZK/m²"},
-        ))
+        st.pydeck_chart(
+            pdk.Deck(
+                layers=[layer],
+                initial_view_state=view_state,
+                tooltip={"text": "{district}\n{price_m2} CZK/m²"},
+            )
+        )
 
     # -----------------------
     # Sensitivity plot
@@ -331,4 +397,3 @@ if st.button("Predict price"):
             prices.append(None)
 
     st.line_chart(pd.DataFrame({"Price": prices}, index=sizes))
-
