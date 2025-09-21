@@ -377,16 +377,8 @@ if st.button("Predict price"):
         df_map["color_a"] = 180
         df_map["radius"] = df_map["price_norm"] * 600 + 200
 
-        # Highlight selected district
-        df_map.loc[df_map["district"] == district, "radius"] *= 1.8
-        df_map.loc[df_map["district"] == district, "color_r"] = 255
-        df_map.loc[df_map["district"] == district, "color_g"] = 50
-        df_map.loc[df_map["district"] == district, "color_b"] = 50
-
-        coords_selected = DISTRICT_COORDS.get(district, (50.08, 14.42))
-        view_state = pdk.ViewState(latitude=coords_selected[0], longitude=coords_selected[1], zoom=12)
-
-        layer = pdk.Layer(
+        # Main layer (all districts, colored by price)
+        layer_main = pdk.Layer(
             "ScatterplotLayer",
             data=df_map,
             get_position=["lon", "lat"],
@@ -394,14 +386,29 @@ if st.button("Predict price"):
             get_radius="radius",
             pickable=True,
         )
-        # view_state = pdk.ViewState(latitude=50.08, longitude=14.42, zoom=11)
-        st.pydeck_chart(
-            pdk.Deck(
-                layers=[layer],
-                initial_view_state=view_state,
-                tooltip={"text": "{district}\n{price_m2} CZK/m²"},
-            )
+
+        # Halo layer (only selected district)
+        df_selected = df_map[df_map["district"] == district]
+        halo_layer = pdk.Layer(
+            "ScatterplotLayer",
+            data=df_selected,
+            get_position=["lon", "lat"],
+            get_fill_color=[255, 255, 255, 100],  # semi-transparent white
+            get_radius="radius*1.6",              # a bit larger than main circle
         )
+
+        view_state = pdk.ViewState(
+            latitude=df_selected["lat"].iloc[0] if not df_selected.empty else 50.08,
+            longitude=df_selected["lon"].iloc[0] if not df_selected.empty else 14.42,
+            zoom=12,
+        )
+
+        st.pydeck_chart(pdk.Deck(
+            layers=[layer_main, halo_layer],
+            initial_view_state=view_state,
+            tooltip={"text": "{district}\n{price_m2} CZK/m²"},
+            map_style="mapbox://styles/mapbox/dark-v11",  # dark map to match dark UI
+        ))
 
     # -----------------------
     # Sensitivity plot
