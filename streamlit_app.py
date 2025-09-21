@@ -16,21 +16,6 @@ MODEL_FILENAMES = ["model.joblib", "model.pkl", "model.pkl.joblib", "model.jobli
 
 st.set_page_config(layout="wide", page_title="🏠 Flat Price Predictor")
 
-# Apply dark theme to the entire Streamlit app
-st.markdown("""
-    <style>
-        body {
-            background-color: #000000;
-            color: #ffffff;
-        }
-        .stApp {
-            background-color: #000000;
-            color: #ffffff;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-
 
 # -----------------------
 # Utility helpers
