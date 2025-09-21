@@ -123,11 +123,42 @@ def inv_target_transform(arr: np.ndarray, tgt: str):
         return np.exp(arr)
     return arr
 
+def predict_with_blend(model_obj, df_in, model_feature_names):
+    """Handle dict-style blended model with weights and order"""
+    if not isinstance(model_obj, dict):
+        return model_obj.predict(df_in)
+
+    base_dict = model_obj.get("base_models") or model_obj.get("models") or {}
+    order = model_obj.get("order", list(base_dict.keys()))
+    weights = model_obj.get("weights", None)
+
+    if isinstance(weights, dict):
+        w = np.array([float(weights.get(n, 0.0)) for n in order], dtype=float)
+    else:
+        w = np.asarray(weights, dtype=float) if weights is not None else np.ones(len(order), dtype=float)
+
+    if w.shape[0] != len(order):
+        w = np.ones(len(order), dtype=float)
+    w[w < 0] = 0.0
+    if w.sum() <= 0:
+        w = np.ones_like(w)
+    w = w / w.sum()
+
+    preds_components = []
+    for i, name in enumerate(order):
+        if name not in base_dict:
+            continue
+        mdl = base_dict[name]
+        cols_for_base = list(map(str, getattr(mdl, "feature_names_", model_feature_names)))
+        Xb = df_in.reindex(columns=cols_for_base, fill_value=0)
+        p = np.asarray(mdl.predict(Xb)).ravel()
+        preds_components.append(p * w[i])
+    return np.sum(np.vstack(preds_components), axis=0)
+
 # -----------------------
 # Load artifacts
 # -----------------------
 model_obj, prep = load_artifacts()
-sanit_map = prep.get("sanit_map", {})
 label_encoders = prep.get("label_encoders", {})
 feature_defaults = prep.get("feature_defaults", {}) or {}
 target_transform = prep.get("target_transform", "log")
@@ -149,6 +180,24 @@ LAYOUT_SIZE_RANGES = {
     "5+1": (120, 200),
 }
 
+DISTRICT_COORDS = {
+    "Praha 1": (50.087, 14.421),
+    "Praha 2": (50.071, 14.434),
+    "Praha 3": (50.084, 14.455),
+    "Praha 4": (50.038, 14.437),
+    "Praha 5": (50.065, 14.389),
+    "Praha 6": (50.098, 14.363),
+    "Praha 7": (50.107, 14.450),
+    "Praha 8": (50.109, 14.474),
+    "Praha 9": (50.111, 14.515),
+    "Praha 10": (50.072, 14.490),
+    "Praha 11": (50.029, 14.514),
+    "Praha 12": (50.005, 14.451),
+    "Praha 13": (50.051, 14.335),
+    "Praha 14": (50.103, 14.551),
+    "Praha 15": (50.080, 14.558),
+}
+
 # -----------------------
 # UI
 # -----------------------
@@ -156,14 +205,9 @@ st.title("🏠 Flat Price Predictor — Prague")
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    usable_area = st.number_input(
-        "Usable area (m²)", min_value=10, max_value=500,
-        value=int(max(20, int(round(feature_defaults.get("usable_area", 50)))))
-    )
-    # sync automatically
-    square_meters = usable_area
-    total_area = usable_area
-    floorage = usable_area
+    usable_area = st.number_input("Usable area (m²)", min_value=10, max_value=500,
+                                  value=int(max(20, int(round(feature_defaults.get("usable_area", 50))))))
+    square_meters = total_area = floorage = usable_area
 
 with col2:
     district_opts = list(map(str, label_encoders.get("district", []).classes_)) if "district" in label_encoders else ["Praha 1"]
@@ -172,6 +216,14 @@ with col2:
 with col3:
     layout_opts = list(map(str, label_encoders.get("layout", []).classes_)) if "layout" in label_encoders else ["1+kk", "2+kk", "3+kk"]
     layout = st.selectbox("Layout", layout_opts, index=0)
+
+col4, col5 = st.columns(2)
+with col4:
+    ownership_opts = list(map(str, label_encoders.get("ownership", []).classes_)) if "ownership" in label_encoders else ["Personal"]
+    ownership = st.selectbox("Ownership", ownership_opts, index=0)
+with col5:
+    building_opts = list(map(str, label_encoders.get("building", []).classes_)) if "building" in label_encoders else ["Brick", "Panel", "Other"]
+    building = st.selectbox("Building", building_opts, index=0)
 
 with st.expander("Additional features"):
     terrace = st.number_input("Terrace size (m²)", min_value=0, max_value=200, value=0)
@@ -185,12 +237,14 @@ provided = {
     "usable_area": usable_area,
     "square_meters": square_meters,
     "total_area": total_area,
+    "floorage": floorage,
     "district": district,
     "layout": layout,
+    "ownership": ownership,
+    "building": building,
     "terrace": terrace,
     "garage": garage,
     "cellar": cellar,
-    "floorage": floorage,
 }
 
 if st.button("Predict price"):
@@ -198,20 +252,10 @@ if st.button("Predict price"):
         df_in = build_input_row(provided, model_feature_names, prep)
         df_in = df_in.reindex(columns=model_feature_names, fill_value=0)
 
-        if not isinstance(model_obj, dict):
-            preds_log = model_obj.predict(df_in)
-        else:
-            base_dict = model_obj.get("base_models") or model_obj.get("models") or {}
-            preds_components = []
-            for m in base_dict.values():
-                cols_for_m = list(map(str, getattr(m, "feature_names_", model_feature_names)))
-                preds_components.append(np.asarray(m.predict(df_in.reindex(columns=cols_for_m, fill_value=0))).ravel())
-            preds_log = np.mean(np.vstack(preds_components), axis=0)
-
+        preds_log = predict_with_blend(model_obj, df_in, model_feature_names)
         preds = inv_target_transform(np.asarray(preds_log).ravel(), target_transform)
+
         price = float(preds[0])
-        st.write("Model input row:", df_in)
-        st.write("Model features:", model_feature_names)
         st.success(f"💰 Estimated price: {price:,.0f} CZK")
     except Exception as e:
         st.error(f"Prediction failed: {e}")
@@ -220,83 +264,52 @@ if st.button("Predict price"):
     # Map: baseline prices by district
     # -----------------------
     st.subheader("🗺 District price map")
-    
-    district_coords = {
-        "Praha 1": (50.087, 14.421),
-        "Praha 2": (50.071, 14.434),
-        "Praha 3": (50.084, 14.455),
-        "Praha 4": (50.038, 14.437),
-        "Praha 5": (50.065, 14.389),
-        "Praha 6": (50.098, 14.363),
-        "Praha 7": (50.107, 14.450),
-        "Praha 8": (50.109, 14.474),
-        "Praha 9": (50.111, 14.515),
-        "Praha 10": (50.072, 14.490),
-        "Praha 11": (50.029, 14.514),
-        "Praha 12": (50.005, 14.451),
-        "Praha 13": (50.051, 14.335),
-        "Praha 14": (50.103, 14.551),
-        "Praha 15": (50.080, 14.558),
-    }
 
-
-    
     district_baselines = []
     flat_size = 60  # reference size
     for d in district_opts:
         prov = provided.copy()
-        prov["district"] = d
-        prov["usable_area"] = prov["square_meters"] = prov["total_area"] = flat_size
+        prov.update({"district": d, "usable_area": flat_size, "square_meters": flat_size, "total_area": flat_size})
         df_tmp = build_input_row(prov, model_feature_names, prep)
         df_tmp = df_tmp.reindex(columns=model_feature_names, fill_value=0)
         try:
-            plog = model_obj.predict(df_tmp) if not isinstance(model_obj, dict) else np.mean(
-                [m.predict(df_tmp) for m in model_obj.get("base_models", {}).values()], axis=0
-            )
+            plog = predict_with_blend(model_obj, df_tmp, model_feature_names)
             price = inv_target_transform(np.asarray(plog).ravel(), target_transform)[0]
             price_m2 = price / flat_size
             coords = DISTRICT_COORDS.get(d, (50.08, 14.42))
-            district_baselines.append({"district": d, "lat": coords[0], "lon": coords[1],
-                                       "price": price, "price_m2": price_m2})
+            district_baselines.append({
+                "district": d, "lat": coords[0], "lon": coords[1],
+                "price": price, "price_m2": price_m2
+            })
         except Exception:
             continue
-    
+
     df_map = pd.DataFrame(district_baselines)
-    df_map["lat"] = df_map["district"].map(lambda d: district_coords.get(d, (50.08, 14.42))[0])
-    df_map["lon"] = df_map["district"].map(lambda d: district_coords.get(d, (50.08, 14.42))[1])
-      
-    # Normalize price per m²
-    min_p, max_p = df_map["price_m2"].min(), df_map["price_m2"].max()
-    df_map["price_norm"] = (
-        (df_map["price_m2"] - min_p) / (max_p - min_p) if max_p > min_p else 0.5
-    )
-    
-    # Colors & sizes
-    df_map["color_r"] = (50 + df_map["price_norm"] * 200).clip(0, 255)
-    df_map["color_g"] = (200 - df_map["price_norm"] * 150).clip(0, 255)
-    df_map["color_b"] = 80
-    df_map["color_a"] = 180
-    df_map["radius"] = df_map["price_norm"] * 300 + 100
-    
-    layer = pdk.Layer(
-        "ScatterplotLayer",
-        data=df_map,
-        get_position=["lon", "lat"],
-        get_fill_color=["color_r", "color_g", "color_b", "color_a"],
-        get_radius="radius",
-        pickable=True,
-    )
-    
-    view_state = pdk.ViewState(latitude=50.08, longitude=14.42, zoom=11)
-    
-    st.pydeck_chart(
-        pdk.Deck(
+
+    if not df_map.empty:
+        min_p, max_p = df_map["price_m2"].min(), df_map["price_m2"].max()
+        df_map["price_norm"] = (df_map["price_m2"] - min_p) / (max_p - min_p) if max_p > min_p else 0.5
+
+        df_map["color_r"] = (50 + df_map["price_norm"] * 200).clip(0, 255)
+        df_map["color_g"] = (200 - df_map["price_norm"] * 150).clip(0, 255)
+        df_map["color_b"] = 80
+        df_map["color_a"] = 180
+        df_map["radius"] = df_map["price_norm"] * 300 + 100
+
+        layer = pdk.Layer(
+            "ScatterplotLayer",
+            data=df_map,
+            get_position=["lon", "lat"],
+            get_fill_color=["color_r", "color_g", "color_b", "color_a"],
+            get_radius="radius",
+            pickable=True,
+        )
+        view_state = pdk.ViewState(latitude=50.08, longitude=14.42, zoom=11)
+        st.pydeck_chart(pdk.Deck(
             layers=[layer],
             initial_view_state=view_state,
             tooltip={"text": "{district}\n{price_m2} CZK/m²"},
-        )
-    )
-
+        ))
 
     # -----------------------
     # Sensitivity plot
@@ -307,15 +320,14 @@ if st.button("Predict price"):
     prices = []
     for s in sizes:
         prov = provided.copy()
-        prov["usable_area"] = prov["square_meters"] = prov["total_area"] = s
+        prov.update({"usable_area": s, "square_meters": s, "total_area": s})
         df_tmp = build_input_row(prov, model_feature_names, prep)
         df_tmp = df_tmp.reindex(columns=model_feature_names, fill_value=0)
         try:
-            plog = model_obj.predict(df_tmp) if not isinstance(model_obj, dict) else np.mean(
-                [m.predict(df_tmp) for m in model_obj.get("base_models", {}).values()], axis=0
-            )
+            plog = predict_with_blend(model_obj, df_tmp, model_feature_names)
             p = inv_target_transform(np.asarray(plog).ravel(), target_transform)[0]
             prices.append(p)
         except Exception:
             prices.append(None)
+
     st.line_chart(pd.DataFrame({"Price": prices}, index=sizes))
