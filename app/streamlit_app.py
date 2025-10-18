@@ -10,7 +10,7 @@ import pydeck as pdk
 # -----------------------
 # Config
 # -----------------------
-ARTIFACT_DIR = Path("model")
+ARTIFACT_DIR = Path("models")
 PREP_FILENAME = "preprocessing.joblib"
 MODEL_FILENAMES = ["model.joblib", "model.pkl", "model.pkl.joblib", "model.joblib"]
 
