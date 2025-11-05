@@ -19,6 +19,30 @@ project/
 └── scraper/ (optional) # web scraping pipeline
 
 
+
+project/
+│
+├── data/
+│   ├── raw/
+│   ├── processed/
+│
+├── notebooks/
+│   ├── 01_data_scraping.ipynb
+│   ├── 02_data_cleaning.ipynb
+│   ├── 03_exploratory_data_analysis.ipynb
+│   ├── 04_modeling.ipynb
+│   └── 05_deployment_demo.ipynb
+│
+├── src/
+│   ├── data_processing.py
+│   ├── feature_engineering.py
+│   ├── modeling.py
+│
+└── requirements.txt
+
+
+
+
 ---
 
 ## 🚀 Workflow
