@@ -20,24 +20,32 @@ project/
 
 
 
-project/
+project_root/
 │
 ├── data/
-│   ├── raw/
-│   ├── processed/
+│   ├── raw/                     # untouched downloaded data
+│   ├── interim/                 # partially processed / intermediate versions
+│   ├── processed/               # cleaned & ready-for-EDA / modeling data
+│   └── external/                # any extra datasets you may merge later
 │
 ├── notebooks/
 │   ├── 01_data_scraping.ipynb
 │   ├── 02_data_cleaning.ipynb
 │   ├── 03_exploratory_data_analysis.ipynb
 │   ├── 04_modeling.ipynb
-│   └── 05_deployment_demo.ipynb
+│   └── 05_app_integration.ipynb
 │
-├── src/
-│   ├── data_processing.py
-│   ├── feature_engineering.py
-│   ├── modeling.py
+├── src/                         # (rename your “models” folder)
+│   ├── preprocessing.joblib
+│   ├── model.joblib
+│   ├── permutation_importance.csv
+│   ├── test_leaderboard.csv
+│   └── model_card.txt
 │
+├── app/
+│   └── streamlit_app.py
+│
+├── README.md
 └── requirements.txt
 
 
