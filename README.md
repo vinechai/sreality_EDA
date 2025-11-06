@@ -20,48 +20,6 @@ project/
 
 
 
-.devcontainer/
-    └── devcontainer.json
-app/
-    └── streamlit_app.py
-data/
-    └── updated_apartments_praha.csv
-deployable/
-    ├── plots/
-        ├── error_hist.png
-        ├── pdp.png
-        ├── perm_importance.png
-        ├── residuals_log.png
-        └── shap_beeswarm.png
-    ├── model_card.txt
-    ├── model.joblib
-    ├── permutation_importance.csv
-    ├── preprocessing.joblib
-    └── test_leaderboard.csv
-models/
-    ├── plots/
-        ├── error_hist.png
-        ├── pdp.png
-        ├── perm_importance.png
-        ├── residuals_log.png
-        └── shap_beeswarm.png
-    ├── model_card.txt
-    ├── model.joblib
-    ├── permutation_importance.csv
-    ├── preprocessing.joblib
-    └── test_leaderboard.csv
-notebooks/
-    ├── sreality_eda_weightedmodel.ipynb
-    ├── sreality_eda_weightedmodel2.ipynb
-    ├── sreality_eda.ipynb
-    └── sreality_project_final.ipynb
-scraper/
-    └── sreality_webscraper.ipynb
-.gitignore
-LICENSE
-README.md
-requirements.txt
-sreality_project_final.ipynb
 
 
 
