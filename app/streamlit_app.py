@@ -182,7 +182,7 @@ def predict_with_blend(model_obj, df_in, model_feature_names):
 
 
 # Load artifacts
-model_obj, prep = load_artifacts()
+#model_obj, prep = load_artifacts()
 label_encoders = prep.get("label_encoders", {})
 feature_defaults = prep.get("feature_defaults", {}) or {}
 target_transform = prep.get("target_transform", "log")
