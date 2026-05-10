@@ -78,7 +78,8 @@ def build_input_row(
 
     for c, le in label_encoders.items():
         if c in expected_cols:
-            print(c, row[c], type(row[c]))
+            if isinstance(row[c], str):
+                row[c] = encode_value(row[c], le)
 
     df = pd.DataFrame([row], columns=expected_cols)
     for c in df.columns:
