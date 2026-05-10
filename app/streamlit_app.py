@@ -15,44 +15,7 @@ PREP_PATH = ARTIFACT_DIR / "preprocessing.joblib"
 model_obj = joblib.load(MODEL_PATH)
 prep = joblib.load(PREP_PATH)
 
-"""
-ARTIFACT_DIR = Path("models")
-PREP_FILENAME = "preprocessing.joblib"
-MODEL_FILENAMES = ["model.joblib", "model.pkl", "model.pkl.joblib", "model.joblib"]
 
-st.set_page_config(layout="wide", page_title="🏠 Flat Price Predictor")
-
-
-# Utility helpers
-def load_artifacts(artifact_dir: Path = ARTIFACT_DIR):
-    model_path = None
-    for fn in MODEL_FILENAMES:
-        p = artifact_dir / fn
-        if p.exists():
-            model_path = p
-            break
-    if model_path is None:
-        raise FileNotFoundError(
-            f"No model file found in {artifact_dir}. Expected one of {MODEL_FILENAMES}"
-        )
-
-    model_obj = joblib.load(model_path)
-
-    prep_path = artifact_dir / PREP_FILENAME
-    if not prep_path.exists():
-        raise FileNotFoundError(
-            f"No preprocessing file at {prep_path}. Please save preprocessing.joblib in {artifact_dir}"
-        )
-
-    prep = joblib.load(prep_path)
-    if not isinstance(prep, dict):
-        raise ValueError(
-            "preprocessing.joblib must contain a dict (sanit_map, label_encoders, "
-            "reduced_feature_names/feature_names, target_transform, feature_defaults)"
-        )
-
-    return model_obj, prep
-"""
 
 def get_model_feature_names(model_obj: Any, prep: Dict[str, Any]) -> List[str]:
     try:
@@ -84,18 +47,8 @@ def get_model_feature_names(model_obj: Any, prep: Dict[str, Any]) -> List[str]:
 
     raise RuntimeError("Cannot determine model feature names.")
 
-"""
-def safe_label_encode_scalar(val: Any, le) -> int:
-    sval = "" if val is None else str(val)
-    classes = list(map(str, getattr(le, "classes_", [])))
-    if sval in classes:
-        return int(le.transform([sval])[0])
-    if "NA_LE" in classes:
-        return int(le.transform(["NA_LE"])[0])
-    if len(classes) > 0:
-        return int(le.transform([classes[0]])[0])
-    return int(le.transform([sval])[0])
-"""
+def encode_value(val, le):
+    return int(le.transform([str(val)])[0])
 
 def build_input_row(
     provided: Dict[str, Any], expected_cols: List[str], prep: Dict[str, Any]
@@ -125,7 +78,7 @@ def build_input_row(
 
     for c, le in label_encoders.items():
         if c in expected_cols:
-            row[c] = safe_label_encode_scalar(row[c], le)
+            row[c] = encode_value(row[c], le)
 
     df = pd.DataFrame([row], columns=expected_cols)
     for c in df.columns:
