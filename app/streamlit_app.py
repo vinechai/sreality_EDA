@@ -7,9 +7,15 @@ from pathlib import Path
 from typing import Any, Dict, List
 import pydeck as pdk
 
-# -----------------------
 # Config
-# -----------------------
+ARTIFACT_DIR = Path("models")
+MODEL_PATH = ARTIFACT_DIR / "final_model.joblib"
+PREP_PATH = ARTIFACT_DIR / "preprocessing.joblib"
+
+model_obj = joblib.load(MODEL_PATH)
+prep = joblib.load(PREP_PATH)
+
+"""
 ARTIFACT_DIR = Path("models")
 PREP_FILENAME = "preprocessing.joblib"
 MODEL_FILENAMES = ["model.joblib", "model.pkl", "model.pkl.joblib", "model.joblib"]
@@ -17,9 +23,7 @@ MODEL_FILENAMES = ["model.joblib", "model.pkl", "model.pkl.joblib", "model.jobli
 st.set_page_config(layout="wide", page_title="🏠 Flat Price Predictor")
 
 
-# -----------------------
 # Utility helpers
-# -----------------------
 def load_artifacts(artifact_dir: Path = ARTIFACT_DIR):
     model_path = None
     for fn in MODEL_FILENAMES:
@@ -48,7 +52,7 @@ def load_artifacts(artifact_dir: Path = ARTIFACT_DIR):
         )
 
     return model_obj, prep
-
+"""
 
 def get_model_feature_names(model_obj: Any, prep: Dict[str, Any]) -> List[str]:
     try:
@@ -80,7 +84,7 @@ def get_model_feature_names(model_obj: Any, prep: Dict[str, Any]) -> List[str]:
 
     raise RuntimeError("Cannot determine model feature names.")
 
-
+"""
 def safe_label_encode_scalar(val: Any, le) -> int:
     sval = "" if val is None else str(val)
     classes = list(map(str, getattr(le, "classes_", [])))
@@ -91,7 +95,7 @@ def safe_label_encode_scalar(val: Any, le) -> int:
     if len(classes) > 0:
         return int(le.transform([classes[0]])[0])
     return int(le.transform([sval])[0])
-
+"""
 
 def build_input_row(
     provided: Dict[str, Any], expected_cols: List[str], prep: Dict[str, Any]
@@ -177,18 +181,14 @@ def predict_with_blend(model_obj, df_in, model_feature_names):
     return np.sum(np.vstack(preds_components), axis=0)
 
 
-# -----------------------
 # Load artifacts
-# -----------------------
 model_obj, prep = load_artifacts()
 label_encoders = prep.get("label_encoders", {})
 feature_defaults = prep.get("feature_defaults", {}) or {}
 target_transform = prep.get("target_transform", "log")
 model_feature_names = get_model_feature_names(model_obj, prep)
 
-# -----------------------
-# Layout ↔ size ranges
-# -----------------------
+# Layout and size ranges
 LAYOUT_SIZE_RANGES = {
     "1+kt": (20, 50),
     "1+1": (25, 55),
@@ -222,10 +222,8 @@ DISTRICT_COORDS = {
     "Missing": (50.167, 14.400),
 }
 
-# -----------------------
 # UI
-# -----------------------
-st.title("🏠 Flat Price Predictor — Prague")
+st.title("Prague Flat Price Predictor")
 
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -274,9 +272,7 @@ with st.expander("Additional features"):
     garage = st.number_input("Garage size (m²)", min_value=0, max_value=100, value=0)
     cellar = st.number_input("Cellar size (m²)", min_value=0, max_value=50, value=0)
 
-# -----------------------
 # Prediction
-# -----------------------
 provided = {
     "usable_area": usable_area,
     "square_meters": square_meters,
@@ -296,7 +292,7 @@ if layout in LAYOUT_SIZE_RANGES:
     min_s, max_s = LAYOUT_SIZE_RANGES[layout]
     if usable_area < min_s or usable_area > max_s * 1.5:
         st.warning(
-            f"⚠️ The selected layout {layout} usually has between {min_s}–{max_s} m². "
+            f" The selected layout {layout} usually has between {min_s}–{max_s} m². "
             f"Your input ({usable_area} m²) looks unusual."
         )
 
@@ -309,14 +305,12 @@ if st.button("Predict price"):
         preds = inv_target_transform(np.asarray(preds_log).ravel(), target_transform)
 
         price = float(preds[0])
-        st.success(f"💰 Estimated price: {price:,.0f} CZK")
+        st.success(f" Estimated price: {price:,.0f} CZK")
     except Exception as e:
         st.error(f"Prediction failed: {e}")
 
-    # -----------------------
     # Map: baseline prices by district
-    # -----------------------
-    st.subheader("🗺 District price map")
+    st.subheader("District price map")
     district_baselines = []
     flat_size = 60  # reference size
     reference_layouts = ["1+kt", "1+1", "2+kt", "2+1", "3+kt", "2+1", "4+kt", "4+1"]  # layouts to average over
@@ -401,10 +395,8 @@ if st.button("Predict price"):
             tooltip={"text": "{district}\n{price_m2} CZK/m²"},
         ))
 
-    # -----------------------
     # Sensitivity plot
-    # -----------------------
-    st.subheader("📊 Sensitivity: Price vs. Usable area")
+    st.subheader("Sensitivity: Price vs. Usable area")
     min_size, max_size = LAYOUT_SIZE_RANGES.get(layout, (20, 120))
     sizes = np.linspace(min_size, max_size, 15)
     prices = []
