@@ -168,7 +168,7 @@ DISTRICT_COORDS = {
     "Praha 8": (50.109, 14.474),
     "Praha 9": (50.111, 14.515),
     "Praha 10": (50.072, 14.490),
-    "Missing": (50.121, 14.421),
+    "Missing": (50.131, 14.421),
 }
 
 # UI
@@ -309,7 +309,7 @@ if st.button("Predict price"):
         df_map["color_r"] = (80 + df_map["price_norm"] * 175).clip(0, 255)
         df_map["color_g"] = (220 - df_map["price_norm"] * 170).clip(0, 255)
         df_map["color_b"] = (120 - df_map["price_norm"] * 60).clip(0, 255)
-        df_map["color_a"] = 230
+        df_map["color_a"] = 200
         df_map["radius"] = df_map["price_norm"] * 350 + 350
 
         # Main layer (all districts, colored by price)
