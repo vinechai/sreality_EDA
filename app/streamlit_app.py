@@ -168,6 +168,7 @@ DISTRICT_COORDS = {
     "Praha 8": (50.109, 14.474),
     "Praha 9": (50.111, 14.515),
     "Praha 10": (50.072, 14.490),
+    "Missing": (50.087, 14.421),
 }
 
 # UI
@@ -305,9 +306,9 @@ if st.button("Predict price"):
             (np.log(df_map["price_m2"]) - np.log(min_p)) / (np.log(max_p) - np.log(min_p))
         )
 
-        df_map["color_r"] = (50 + df_map["price_norm"] * 200).clip(0, 255)
-        df_map["color_g"] = (200 - df_map["price_norm"] * 150).clip(0, 255)
-        df_map["color_b"] = 80
+        df_map["color_r"] = (120 + df_map["price_norm"] * 100).clip(0, 255)
+        df_map["color_g"] = (180 - df_map["price_norm"] * 80).clip(0, 255)
+        df_map["color_b"] = (220 - df_map["price_norm"] * 120).clip(0, 255)
         df_map["color_a"] = 180
         df_map["radius"] = df_map["price_norm"] * 600 + 200
 
