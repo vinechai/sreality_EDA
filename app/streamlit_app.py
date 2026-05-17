@@ -302,8 +302,8 @@ if st.button("Predict price"):
 
     if not df_map.empty:
         min_p, max_p = df_map["price_m2"].min(), df_map["price_m2"].max()
-        df_map["price_norm"] = (np.log(df_map["price_m2"]) - np.log(min_p)) / (
-            np.log(max_p) - np.log(min_p)
+        df_map["price_norm"] = (
+            (df_map["price_m2"] - min_p) / (max_p - min_p) if max_p > min_p else 0.5
         )
 
         df_map["color_r"] = (50 + df_map["price_norm"] * 200).clip(0, 255)
