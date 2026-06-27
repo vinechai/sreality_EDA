@@ -12,8 +12,15 @@ ARTIFACT_DIR = Path("models")
 MODEL_PATH = ARTIFACT_DIR / "final_model.joblib"
 PREP_PATH = ARTIFACT_DIR / "preprocessing.joblib"
 
-model_obj = joblib.load(MODEL_PATH)
-prep = joblib.load(PREP_PATH)
+
+@st.cache_resource
+def load_artifacts():
+    model = joblib.load(MODEL_PATH)
+    p = joblib.load(PREP_PATH)
+    return model, p
+
+
+model_obj, prep = load_artifacts()
 
 
 
@@ -51,24 +58,28 @@ def encode_value(val, le):
     return int(le.transform([str(val)])[0])
 
 def build_input_row(
-    provided: Dict[str, Any], expected_cols: List[str], prep: Dict[str, Any]
+    provided: Dict[str, Any], expected_cols: List[str], prep: Dict[str, Any],
+    encode_cats: bool = True
 ) -> pd.DataFrame:
     label_encoders: Dict[str, Any] = prep.get("label_encoders", {})
-    defaults: Dict[str, Any] = prep.get("feature_defaults", {})
+    defaults: Dict[str, Any] = prep.get("feature_defaults", {}) or {}
 
     row: Dict[str, Any] = {}
     for c in expected_cols:
         if c in label_encoders:
-            if c in defaults:
-                row[c] = defaults[c]
+            default_val = defaults.get(c)
+            if default_val is not None:
+                if not encode_cats and isinstance(default_val, (int, float)):
+                    # reverse-decode integer default to string for native CatBoost
+                    try:
+                        row[c] = str(label_encoders[c].classes_[int(default_val)])
+                    except (IndexError, TypeError):
+                        row[c] = str(label_encoders[c].classes_[0])
+                else:
+                    row[c] = default_val
             else:
                 classes = list(map(str, getattr(label_encoders[c], "classes_", [])))
-                if "NA_LE" in classes:
-                    row[c] = "NA_LE"
-                elif len(classes) > 0:
-                    row[c] = classes[0]
-                else:
-                    row[c] = "NA_LE"
+                row[c] = classes[0] if classes else "NA"
         else:
             row[c] = defaults.get(c, 0)
 
@@ -76,14 +87,14 @@ def build_input_row(
         if k in expected_cols:
             row[k] = v
 
-    for c, le in label_encoders.items():
-        if c in expected_cols:
-            if isinstance(row[c], str):
+    if encode_cats:
+        for c, le in label_encoders.items():
+            if c in expected_cols and isinstance(row[c], str):
                 row[c] = encode_value(row[c], le)
 
     df = pd.DataFrame([row], columns=expected_cols)
     for c in df.columns:
-        if c not in label_encoders:
+        if c not in label_encoders or encode_cats:
             df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
     return df
 
@@ -135,12 +146,18 @@ def predict_with_blend(model_obj, df_in, model_feature_names):
     return np.sum(np.vstack(preds_components), axis=0)
 
 
-# Load artifacts
-#model_obj, prep = load_artifacts()
 label_encoders = prep.get("label_encoders", {})
 feature_defaults = prep.get("feature_defaults", {}) or {}
 target_transform = prep.get("target_transform", "log")
 model_feature_names = get_model_feature_names(model_obj, prep)
+
+# detect native categorical encoding (CatBoost trained with cat_features)
+_uses_native_cats = (
+    type(model_obj).__name__ == "CatBoostRegressor"
+    and hasattr(model_obj, "get_params")
+    and bool(model_obj.get_params().get("cat_features"))
+)
+_encode_cats = not _uses_native_cats
 
 # Layout and size ranges
 LAYOUT_SIZE_RANGES = {
@@ -196,19 +213,12 @@ with col3:
     layout_opts = (
         list(map(str, label_encoders.get("layout", []).classes_))
         if "layout" in label_encoders
-        else ["1+kk", "2+kk", "3+kk"]
+        else ["1+kt", "2+kt", "3+kt"]
     )
     layout = st.selectbox("Layout", layout_opts, index=0)
 
-col4, col5 = st.columns(2)
+col4 = st.columns(1)[0]
 with col4:
-    ownership_opts = (
-        list(map(str, label_encoders.get("ownership", []).classes_))
-        if "ownership" in label_encoders
-        else ["Personal"]
-    )
-    ownership = st.selectbox("Ownership", ownership_opts, index=0)
-with col5:
     building_opts = (
         list(map(str, label_encoders.get("building", []).classes_))
         if "building" in label_encoders
@@ -229,7 +239,6 @@ provided = {
     "floorage": floorage,
     "district": district,
     "layout": layout,
-    "ownership": ownership,
     "building": building,
     "terrace": terrace,
     "garage": garage,
@@ -247,7 +256,7 @@ if layout in LAYOUT_SIZE_RANGES:
 
 if st.button("Predict price"):
     try:
-        df_in = build_input_row(provided, model_feature_names, prep)
+        df_in = build_input_row(provided, model_feature_names, prep, encode_cats=_encode_cats)
         df_in = df_in.reindex(columns=model_feature_names, fill_value=0)
 
         preds_log = predict_with_blend(model_obj, df_in, model_feature_names)
@@ -262,7 +271,7 @@ if st.button("Predict price"):
     st.subheader("District price map")
     district_baselines = []
     flat_size = 60  # reference size
-    reference_layouts = ["1+kt", "1+1", "2+kt", "2+1", "3+kt", "2+1", "4+kt", "4+1"]  # layouts to average over
+    reference_layouts = ["1+kt", "1+1", "2+kt", "2+1", "3+kt", "3+1", "4+kt", "4+1"]
 
     for d in district_opts:
         layout_prices = []
@@ -278,7 +287,7 @@ if st.button("Predict price"):
                 "garage": 0,
                 "cellar": 0
             })
-            df_tmp = build_input_row(prov, model_feature_names, prep)
+            df_tmp = build_input_row(prov, model_feature_names, prep, encode_cats=_encode_cats)
             df_tmp = df_tmp.reindex(columns=model_feature_names, fill_value=0)
             try:
                 plog = predict_with_blend(model_obj, df_tmp, model_feature_names)
@@ -352,7 +361,7 @@ if st.button("Predict price"):
     for s in sizes:
         prov = provided.copy()
         prov.update({"usable_area": s, "square_meters": s, "total_area": s})
-        df_tmp = build_input_row(prov, model_feature_names, prep)
+        df_tmp = build_input_row(prov, model_feature_names, prep, encode_cats=_encode_cats)
         df_tmp = df_tmp.reindex(columns=model_feature_names, fill_value=0)
         try:
             plog = predict_with_blend(model_obj, df_tmp, model_feature_names)

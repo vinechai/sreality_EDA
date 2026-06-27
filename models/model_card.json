@@ -1,0 +1,35 @@
+{
+    "project": "Housing Price Prediction",
+    "author": "Vitalii Nechai",
+    "date_created": "2026-06-11",
+    "python_version": "3.14.5",
+    "model_details": {
+        "model_name": "CatBoost",
+        "target_transformation": "log",
+        "feature_count": 37
+    },
+    "data": {
+        "train_size": 2584,
+        "validation_size": 646,
+        "test_size": 808
+    },
+    "performance_on_test": {
+        "rmse": 0.16831602248417588,
+        "mae": 0.11472588103085607,
+        "r2": 0.8754825393808755,
+        "median_absolute_percentage_error": 0.07735815774876932
+    },
+    "top_features": [
+        "square_meters",
+        "total_area",
+        "district",
+        "cadastral_area",
+        "layout"
+    ],
+    "limitations": [
+        "Model trained on historical housing data.",
+        "May not generalize to different geographic regions.",
+        "Market dynamics may shift over time."
+    ],
+    "intended_use": "Real estate price estimation for properties similar to training distribution."
+}

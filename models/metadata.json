@@ -1,0 +1,11 @@
+{
+    "model_name": "CatBoost",
+    "target_transform": "log",
+    "rmse_test": 0.16831602248417588,
+    "mae_test": 0.11472588103085607,
+    "r2_test": 0.8754825393808755,
+    "median_abs_pct_error": 0.07735815774876932,
+    "n_train": 2584,
+    "n_valid": 646,
+    "n_test": 808
+}

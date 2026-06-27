@@ -9,4 +9,9 @@ seaborn
 plotly
 streamlit
 joblib
-pathlib
+missingno
+dython
+statsmodels
+optuna
+shap
+scipy

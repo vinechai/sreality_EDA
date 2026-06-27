@@ -1,114 +1,56 @@
-# 🏠 Housing Price Prediction
+# Prague apartment price prediction
 
-A machine learning project predicting housing prices using tree-based models (CatBoost, XGBoost, GradientBoosting, etc.) with ensembling, model interpretation, and deployment-ready artifacts.
+End-to-end ML project: scrape listings, clean and explore the data, train a model, serve predictions through a web app.
 
----
+**Data**: ~4 600 apartment sale listings scraped from sreality.cz (November 2024, Prague only)
 
-## 📂 Project Structure
+**Model**: CatBoost tuned with Optuna, median absolute prediction error ~7.8%
 
-project/
-├── data/ # raw + processed
-├── notebooks/
-│ ├── 01_EDA.ipynb
-│ ├── 02_Modeling.ipynb
-│ ├── 03_Test_and_Interpretation.ipynb
-│ └── 04_Deployment.ipynb
-├── deployable/ # artifacts (model.joblib, preprocessing.joblib, plots/, model_card.txt)
-├── requirements.txt
-├── README.md # explains project
-└── scraper/ (optional) # web scraping pipeline
-
-
-
-
-
-
-
-project_root/
-│
-├── data/
-│   ├── raw/                     # untouched downloaded data
-│   ├── interim/                 # partially processed / intermediate versions
-│   ├── processed/               # cleaned & ready-for-EDA / modeling data
-│   └── external/                # any extra datasets you may merge later
-│
-├── notebooks/
-│   ├── 01_data_scraping.ipynb
-│   ├── 02_data_cleaning.ipynb
-│   ├── 03_exploratory_data_analysis.ipynb
-│   ├── 04_modeling.ipynb
-│   └── 05_app_integration.ipynb
-│
-├── src/                         # (rename your “models” folder)
-│   ├── preprocessing.joblib
-│   ├── model.joblib
-│   ├── permutation_importance.csv
-│   ├── test_leaderboard.csv
-│   └── model_card.txt
-│
-├── app/
-│   └── streamlit_app.py
-│
-├── README.md
-└── requirements.txt
-
-
-
-
----
-
-## 🚀 Workflow
-
-1. **Data Collection**  
-   - Optional scraper (`scraper/`) collects housing data.  
-   - Data stored in `data/`.
-
-2. **Exploration & Feature Engineering**  
-   - Run `notebooks/01_EDA.ipynb`.  
-   - Clean, explore, and transform dataset.
-
-3. **Model Training & Leaderboard**  
-   - Run `notebooks/02_Modeling.ipynb`.  
-   - Trains multiple models, tunes hyperparameters, and saves leaderboard.
-
-4. **Final Evaluation & Interpretation**  
-   - Run `notebooks/03_Test_and_Interpretation.ipynb`.  
-   - Evaluates best models on the test set.  
-   - Generates SHAP/PDP/Permutation Importance plots.  
-   - Saves `model_card.txt`.
-
-5. **Deployment**  
-   - Run `notebooks/04_Deployment.ipynb`.  
-   - Loads trained artifacts from `deployable/`.  
-   - Provides a `predict_price(df)` wrapper for inference.
-
----
-
-## 📊 Results
-
-- **Best Model**: Weighted Blend (GradientBoosting + CatBoost + XGBoost)  
-- **Test Metrics**:  
-  - RMSE: `0.1745`  
-  - MAE: `0.1224`  
-  - R²: `0.8702`
-
-See [`deployable/model_card.txt`](deployable/model_card.txt) for full documentation.
-
----
-
-## 📈 Interpretability
-
-- Permutation importance  
-- SHAP values  
-- Partial dependence plots  
-
-Visuals available in `deployable/plots/`.
-
----
-
-## 🔧 Installation
+## Running the app
 
 ```bash
-git clone https://github.com/yourusername/housing-price-prediction.git
-cd housing-price-prediction
 pip install -r requirements.txt
+streamlit run app/streamlit_app.py
+```
+
+## Project structure
+
+```
+notebooks/
+    02_data_cleaning.ipynb              raw data cleaning and feature engineering
+    03_exploratory_data_analysis.ipynb  EDA, variable analysis, modelling notes
+    04_split_and_pre_modeling.ipynb     train/val/test split, feature selection, preprocessing
+    05_modeling.ipynb                   model training, evaluation, SHAP interpretation
+
+scraper/
+    sreality_webscraper.ipynb           selenium scraper for sreality.cz
+
+app/
+    streamlit_app.py                    prediction UI with district price map
+
+data/
+    raw/                                original scraped CSV
+    processed/                          cleaned parquets, split datasets
+
+models/                                 saved model and preprocessing artifacts
+```
+
+Notebooks are meant to be run in order (02 to 05). Each one saves outputs that the next one loads.
+
+## Modeling
+
+Linear models (Ridge, Lasso, ElasticNet) as a baseline, tree ensembles (Random Forest, Gradient Boosting, XGBoost, LightGBM, CatBoost) tuned with Optuna using 5-fold cross-validation. All tree models use label encoding for categoricals. CatBoost's native encoding was tested but rolled back — it broke sklearn-based visualization tools (SHAP beeswarm, partial dependence plots) with no meaningful performance gain on this dataset.
+
+Final model selection based on validation RMSE. A weighted blend of the top 3 slightly outperformed CatBoost alone (0.169 vs 0.170 validation RMSE), but the gap is small enough that a single model was kept for simplicity of deployment.
+
+Test set performance: RMSE ~0.19, MAE ~0.14, R2 ~0.87 (log-scale). Median absolute percentage error ~7.8% on actual CZK prices.
+
+## Key findings from EDA
+
+- `square_meters`, `layout`, and `district` are the strongest predictors (confirmed by SHAP and permutation importance)
+- apartments with kitchenette layouts (+kt) are consistently more expensive per m2 than +1 layouts, driven by building age rather than size
+- Praha 10 is the cheapest district despite containing some central cadastral areas like Vinohrady
+
+## Notes
+
+The scraper was built for the sreality.cz layout at the time of collection (November 2024). The website structure may have changed since. Model predictions reflect market conditions at that point.
