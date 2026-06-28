@@ -303,7 +303,7 @@ if st.button("Predict price"):
                 "district": d,
                 "lat": coords[0],
                 "lon": coords[1],
-                "price_m2": avg_price_m2
+                "price_m2": round(avg_price_m2)
             })
 
 

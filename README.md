@@ -6,7 +6,9 @@ End-to-end ML project: scrape listings, clean and explore the data, train a mode
 
 **Model**: CatBoost tuned with Optuna, median absolute prediction error ~7.8%
 
-## Running the app
+**Live demo**: https://sreality-price-prediction-2024.streamlit.app/
+
+## Running the app locally
 
 ```bash
 pip install -r requirements.txt
