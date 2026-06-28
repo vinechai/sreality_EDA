@@ -80,6 +80,13 @@ target/
 notebooks/catboost_info/
 CLAUDE.md
 
+# generated data (run the notebooks locally to reproduce)
+data/raw/
+data/processed/
+
+# local utility scripts
+push_to_github.ps1
+
 # IPython
 profile_default/
 ipython_config.py

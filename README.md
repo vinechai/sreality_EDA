@@ -39,11 +39,11 @@ Notebooks are meant to be run in order (02 to 05). Each one saves outputs that t
 
 ## Modeling
 
-Linear models (Ridge, Lasso, ElasticNet) as a baseline, tree ensembles (Random Forest, Gradient Boosting, XGBoost, LightGBM, CatBoost) tuned with Optuna using 5-fold cross-validation. All tree models use label encoding for categoricals. CatBoost's native encoding was tested but rolled back — it broke sklearn-based visualization tools (SHAP beeswarm, partial dependence plots) with no meaningful performance gain on this dataset.
+Linear models (Ridge, Lasso, ElasticNet) as a baseline, tree ensembles (Random Forest, Gradient Boosting, XGBoost, LightGBM, CatBoost) tuned with Optuna using 5-fold cross-validation. All tree models use label encoding for categoricals. CatBoost's native encoding was tested but rolled back. it broke sklearn-based visualization tools (SHAP beeswarm, partial dependence plots) with no meaningful performance gain on this dataset.
 
 Final model selection based on validation RMSE. A weighted blend of the top 3 slightly outperformed CatBoost alone (0.169 vs 0.170 validation RMSE), but the gap is small enough that a single model was kept for simplicity of deployment.
 
-Test set performance: RMSE ~0.19, MAE ~0.14, R2 ~0.87 (log-scale). Median absolute percentage error ~7.8% on actual CZK prices.
+Test set performance: RMSE 0.168, MAE 0.115, R2 0.875 (log-scale), bootstrap 95% CI for RMSE (0.151, 0.188). Median absolute percentage error ~7.8% on actual CZK prices.
 
 ## Key findings from EDA
 
